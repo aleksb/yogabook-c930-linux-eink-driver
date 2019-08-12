@@ -1,0 +1,14 @@
+modules.order
+*.o
+*.ko
+*.ko.unsigned
+*.cmd
+*.symvers
+*.order
+*.mod
+*.mod.c
+*.o.d
+*.o.rc
+*.o.ur-safe
+.tmp_versions/
+dkms.conf
