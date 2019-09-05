@@ -124,10 +124,10 @@ they are:
     * `init` — runs the initialisation sequence
     * `kb` — enables the keyboard after initialisation
     * `draw` — enables draw mode
-    * `blit o x y w h` — does a rectangular copy from the device's internal
-      buffer to the screen
-    * `xfer o w h` — writes an array of pixels to the device's internal
-      buffer
+    * `blit o x y w h` — does a rectangular copy from the device's
+      internal buffer to the screen
+    * `xfer o w h` — writes an array of pixels from the host (Linux) to
+      the device's internal buffer
 
 `init` and `kb` run automatically when the driver is loaded, so you may
 not need them.
@@ -141,83 +141,20 @@ Be very careful about `o`, `w` and `h` as who knows what might happen if
 you overwrite the wrong part of memory in the device. Probably nothing but
 don't say I didn't warn you.
 
-
-## Pixel transfer quirks
-
-The pixel transfer mechanism is a little odd. Basically, you can transfer
-a _screen-shaped_ rectangle of bytes into a _screen-shaped_ buffer inside
-the device. (The max size of this buffer, etc., are still to be worked out.
-It is at least 1920x1080 bytes in size though.)
-
-Put another way, if you want to draw a 20x30 rectangle on the screen, you
-will not have a sequence of 600 bytes in the internal buffer. Rather, you
-will have 20 bytes and then don't-care for 1900 bytes and then another 20
-bytes of your image and then don't care for 1900 bytes etc.
-
-Put yet another way, the internal blit routine works like this:
-
-    init_offset = y * 1920 + x
-    for row = 0 to num_rows:
-        for col = 0 to num_cols:
-            offset = init_offset + col * 1920 + row
-            display[offset] = buffer[offset]
-
-using the same offset for the display and the buffer, rather than simply
-incrementing the offset into the buffer.
-
-From what I have seen so far, the Windows driver lines up the internal
-buffer with the screen perfectly, however I have found that by tweaking
-pointers you can load data to anywhere in the internal buffer and paste it
-anywhere on the screen (potentially multiple times—like a sprite!)
-
-The Windows driver seems to max out its packets at 61440 bytes, which is
-exactly 1920×32 or 0xf000. So if it is paining a full-screen image, it
-does it 32 rows at a time. Is this because of a 64KB packet limit? Maybe.
-
-
-## E-Ink artifacts
-
-I have tried moving little sprites around the screen but so far it seems
-that the E-Ink artifacts mean this looks bad. I wonder whether the device
-offers "cleaning" facilities or if a few manual repaints will do the trick.
+[Here is more info](drawing-images.md) about how to draw images.
 
 
 
 ## Protocol details
 
 Like much of modern built-in hardware, the E-Ink display actually sits
-on a USB bus (sorry for
-[RAS syndrome](https://en.wikipedia.org/wiki/RAS_syndrome).)
-Since USB has a simple packet-based protocol, you can record and analyse
-the packet exchange using [Wireshark](https://www.wireshark.org/) with
-[USBPcap](https://desowin.org/usbpcap/) on Windows.
+on a USB bus. Since USB has a simple packet-based protocol, you can
+record and analyse the packet exchange using
+[Wireshark](https://www.wireshark.org/). This is how the features so far
+have been reverse-engineered.
 
-The most important part to understand is the 3-packet exchange.
-I'm not sure to what extent this fits within a standard USB or USB-SCSI
-protocol but every transaction seems to work like this:
+[Here is more info](usb-protocol.md) on the USB protocol.
 
- * Host sends a control packet which asks the device to perform some
-   function. This packet specifies whether it will send another packet
-   (which I call DIR\_OUT) or is expecting the device to send a response
-   packet (which I call DIR\_IN).
- * Host either sends another packet, or the device sends a packet, based
-   on the previous step.
- * Device then sends an "OK" packet.
-
-Beside from that, use the Wireshark plugin and sniff around, and compare
-to what is in the Linux driver file.
-
-I painstakingly cut up and labelled every field you see in the Wireshark
-plugin. Initially it was a confusing mess of 8, 16 and 32-bit fields but
-over time it all started fitting together into something much simpler
-and I feel more confident I've labelled things correctly.
-Nonetheless, remember it is all guesswork so anything could be wrong.
-
-There is a sample capture file called enable\_kb.pcap. The keyboard is
-enabled after 8 seconds into the trace, where Windows does its scrolling
-animation thing then displays a little menu in the top right corner.
-
-If you'd like to contribute, contact me and I can explain further.
 
 
 ## Driver code
